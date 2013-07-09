@@ -41,6 +41,7 @@ class Error(Exception): pass
 _DEFAULT_COMPILER_SETTINGS = [
     ('useNameMapper', True, 'Enable NameMapper for dotted notation and searchList support'),
     ('useSearchList', True, 'Enable the searchList, requires useNameMapper=True, if disabled, first portion of the $variable is a global, builtin, or local variable that doesn\'t need looking up in the searchList'),
+    ('useSimpleNameMapper', False, 'Disable all of NameMapper\'s magic, including autocalling and dotted notation'),
     ('allowSearchListAsMethArg', True, ''),
     ('useAutocalling', True, 'Detect and call callable objects in searchList, requires useNameMapper=True'),
     ('useStackFrames', True, 'Used for NameMapper.valueFromFrameOrSearchList rather than NameMapper.valueFromSearchList'),
@@ -159,7 +160,10 @@ class GenUtils(object):
         if nameChunks[0][0] in self.setting('gettextTokens'):
             self.addGetTextVar(nameChunks) 
         if self.setting('useNameMapper') and not plain:
-            return self.genNameMapperVar(nameChunks)
+            if self.setting('useSimpleNameMapper'):
+                return self.genSimpleNameMapperVar(nameChunks)
+            else:
+                return self.genNameMapperVar(nameChunks)
         else:
             return self.genPlainVar(nameChunks)
 
@@ -188,6 +192,39 @@ class GenUtils(object):
         while nameChunks:
             chunk = nameChunks.pop()
             pythonCode = (pythonCode + '.' + chunk[0] + chunk[2])
+        return pythonCode
+
+    def genSimpleNameMapperVar(self, nameChunks):
+        """Generate Python code for a Cheetah $var without using NameMapper,
+        but still consulting the SearchList for the leftmost name.
+        """
+        useSearchList = self.setting('useSearchList')
+
+        nameChunks.reverse()
+        name, useAC, remainder = nameChunks.pop()
+        dotIdx = name.find('.')
+        if dotIdx == -1:
+            leftmostName = name
+            remainingNames = ''
+        else:
+            leftmostName = name[:dotIdx]
+            remainingNames = name[dotIdx:]
+
+        if not useSearchList:
+            pythonCode = leftmostName
+        if self.setting('useStackFrames'):
+            pythonCode = ('VFFSL(SL,'
+                          '"'+ leftmostName + '",False)')
+        else:
+            pythonCode = ('VFSL([locals()]+SL+[globals(), builtin],'
+                          '"'+ leftmostName + '",False)')
+
+        pythonCode += remainingNames + remainder
+
+        while nameChunks:
+            chunk = nameChunks.pop()
+            pythonCode = (pythonCode + '.' + chunk[0] + chunk[2])
+
         return pythonCode
 
     def genNameMapperVar(self, nameChunks):

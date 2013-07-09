@@ -1043,6 +1043,35 @@ class NameMapper(OutputTest):
         self.verify("$anObj.methWithPercentSignDefaultArg",
                     "110%")
 
+    def test22a(self):
+        """Nested dictionary access - NameMapper style, with the NameMapper
+        disabled.
+
+        Should fail.
+        """
+        try:
+            self.verify(
+                """#compiler-settings\n"""
+                """useSimpleNameMapper = True\n"""
+                """#end compiler-settings\n"""
+                """$aDict.nestedDict.two""",
+                "nestedItem2")
+        except AttributeError:
+            pass
+        else:
+            self.fail("Disabling name mapper should disable autokey")
+
+    def test22b(self):
+        """Nested dictionary access, with the NameMapper disabled but search
+        list enabled.
+        """
+        self.verify(
+                """#compiler-settings\n"""
+                """useSimpleNameMapper = True\n"""
+                """#end compiler-settings\n"""
+                """$aDict['nestedDict']['two']""",
+                "nestedItem2")
+
 
 #class NameMapperDict(OutputTest):
 #
